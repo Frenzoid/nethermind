@@ -44,23 +44,11 @@ namespace Nethermind.Db
         {
             get
             {
-                if (_readDelay > 0)
-                {
-                    Thread.Sleep(_readDelay);
-                }
-
-                ReadsCount++;
-                return _db.TryGetValue(key, out byte[] value) ? value : null;
+                return Get(key);
             }
             set
             {
-                if (_writeDelay > 0)
-                {
-                    Thread.Sleep(_writeDelay);
-                }
-
-                WritesCount++;
-                _db[key] = value;
+                Set(key, value);
             }
         }
 
@@ -103,7 +91,7 @@ namespace Nethermind.Db
 
         public IEnumerable<byte[]> GetAllValues(bool ordered = false) => Values;
 
-        public IBatch StartBatch()
+        public virtual IBatch StartBatch()
         {
             return this.LikeABatch();
         }
@@ -113,22 +101,46 @@ namespace Nethermind.Db
 
         public int Count => _db.Count;
 
+        public long GetSize() => 0;
+
         public void Dispose()
         {
         }
 
         public virtual Span<byte> GetSpan(ReadOnlySpan<byte> key)
         {
-            return this[key].AsSpan();
+            return Get(key).AsSpan();
         }
 
         public void PutSpan(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
         {
-            this[key] = value.ToArray();
+            Set(key, value.ToArray());
         }
 
         public void DangerousReleaseMemory(in Span<byte> span)
         {
+        }
+
+        public virtual byte[]? Get(ReadOnlySpan<byte> key, ReadFlags flags = ReadFlags.None)
+        {
+            if (_readDelay > 0)
+            {
+                Thread.Sleep(_readDelay);
+            }
+
+            ReadsCount++;
+            return _db.TryGetValue(key, out byte[] value) ? value : null;
+        }
+
+        public virtual void Set(ReadOnlySpan<byte> key, byte[]? value, WriteFlags flags = WriteFlags.None)
+        {
+            if (_writeDelay > 0)
+            {
+                Thread.Sleep(_writeDelay);
+            }
+
+            WritesCount++;
+            _db[key] = value;
         }
     }
 }

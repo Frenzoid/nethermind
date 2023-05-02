@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Nethermind.Blockchain.FullPruning;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Db;
 using Nethermind.Db.FullPruning;
@@ -21,15 +24,30 @@ using NUnit.Framework;
 
 namespace Nethermind.Blockchain.Test.FullPruning
 {
+
+    [TestFixture(0, 1)]
+    [TestFixture(0, 4)]
+    [TestFixture(1, 1)]
+    [TestFixture(1, 4)]
     [Parallelizable(ParallelScope.All)]
     public class FullPrunerTests
     {
+        private readonly int _fullPrunerMemoryBudgetMb;
+        private readonly int _degreeOfParallelism;
+
+        public FullPrunerTests(int fullPrunerMemoryBudgetMb, int degreeOfParallelism)
+        {
+            _fullPrunerMemoryBudgetMb = fullPrunerMemoryBudgetMb;
+            _degreeOfParallelism = degreeOfParallelism;
+        }
+
         [Test, Timeout(Timeout.MaxTestTime)]
         public async Task can_prune()
         {
             TestContext test = CreateTest();
             bool contextDisposed = await test.WaitForPruning();
             contextDisposed.Should().BeTrue();
+            test.ShouldCopyAllValues();
         }
 
         [Test, Timeout(Timeout.MaxTestTime)]
@@ -65,6 +83,28 @@ namespace Nethermind.Blockchain.Test.FullPruning
             bool result = await test.WaitForPruning();
             result.Should().BeTrue();
             test.CopyDb.Count.Should().Be(count);
+        }
+
+        [Timeout(Timeout.MaxTestTime)]
+        [TestCase(true, FullPruningCompletionBehavior.None, false)]
+        [TestCase(true, FullPruningCompletionBehavior.ShutdownOnSuccess, true)]
+        [TestCase(true, FullPruningCompletionBehavior.AlwaysShutdown, true)]
+        [TestCase(false, FullPruningCompletionBehavior.None, false)]
+        [TestCase(false, FullPruningCompletionBehavior.ShutdownOnSuccess, false)]
+        [TestCase(false, FullPruningCompletionBehavior.AlwaysShutdown, true)]
+        public async Task pruning_shuts_down_node(bool success, FullPruningCompletionBehavior behavior, bool expectedShutdown)
+        {
+            TestContext test = CreateTest(successfulPruning: success, completionBehavior: behavior);
+            await test.WaitForPruning();
+
+            if (expectedShutdown)
+            {
+                test.ProcessExitSource.Received(1).Exit(ExitCodes.Ok);
+            }
+            else
+            {
+                test.ProcessExitSource.DidNotReceiveWithAnyArgs().Exit(ExitCodes.Ok);
+            }
         }
 
         [Test, Timeout(Timeout.MaxTestTime)]
@@ -119,7 +159,8 @@ namespace Nethermind.Blockchain.Test.FullPruning
             test.FullPruningDb[key].Should().BeEquivalentTo(key);
         }
 
-        private static TestContext CreateTest(bool successfulPruning = true, bool clearPrunedDb = false) => new(successfulPruning, clearPrunedDb);
+        private TestContext CreateTest(bool successfulPruning = true, bool clearPrunedDb = false, FullPruningCompletionBehavior completionBehavior = FullPruningCompletionBehavior.None) =>
+            new(successfulPruning, clearPrunedDb, completionBehavior, _fullPrunerMemoryBudgetMb, _degreeOfParallelism);
 
         private class TestContext
         {
@@ -134,21 +175,33 @@ namespace Nethermind.Blockchain.Test.FullPruning
             public MemDb TrieDb { get; }
             public MemDb CopyDb { get; }
 
-            public TestContext(bool successfulPruning, bool clearPrunedDb = false)
+            public IProcessExitSource ProcessExitSource { get; } = Substitute.For<IProcessExitSource>();
+
+            public TestContext(
+                bool successfulPruning,
+                bool clearPrunedDb = false,
+                FullPruningCompletionBehavior completionBehavior = FullPruningCompletionBehavior.None,
+                int fullScanMemoryBudgetMb = 0,
+                int degreeOfParallelism = 0)
             {
-                BlockTree.NewHeadBlock += (_, e) => _head = e.Block.Number;
+                BlockTree.OnUpdateMainChain += (_, e) => _head = e.Blocks[^1].Number;
                 _clearPrunedDb = clearPrunedDb;
-                TrieDb = new MemDb();
-                CopyDb = new MemDb();
+                TrieDb = new TestMemDb();
+                CopyDb = new TestMemDb();
                 IRocksDbFactory rocksDbFactory = Substitute.For<IRocksDbFactory>();
                 rocksDbFactory.CreateDb(Arg.Any<RocksDbSettings>()).Returns(TrieDb, CopyDb);
 
                 PatriciaTree trie = Build.A.Trie(TrieDb).WithAccountsByIndex(0, 100).TestObject;
                 _stateRoot = trie.RootHash;
-                StateReader = new StateReader(new TrieStore(TrieDb, LimboLogs.Instance), new MemDb(), LimboLogs.Instance);
+                StateReader = new StateReader(new TrieStore(TrieDb, LimboLogs.Instance), new TestMemDb(), LimboLogs.Instance);
                 FullPruningDb = new TestFullPruningDb(new RocksDbSettings("test", "test"), rocksDbFactory, successfulPruning, clearPrunedDb);
 
-                Pruner = new(FullPruningDb, PruningTrigger, new PruningConfig(), BlockTree, StateReader, LimboLogs.Instance);
+                Pruner = new(FullPruningDb, PruningTrigger, new PruningConfig()
+                {
+                    FullPruningMaxDegreeOfParallelism = degreeOfParallelism,
+                    FullPruningMemoryBudgetMb = fullScanMemoryBudgetMb,
+                    FullPruningCompletionBehavior = completionBehavior
+                }, BlockTree, StateReader, ProcessExitSource, LimboLogs.Instance);
             }
 
             public async Task<bool> WaitForPruning()
@@ -188,7 +241,15 @@ namespace Nethermind.Blockchain.Test.FullPruning
                     Block head = Build.A.Block.WithStateRoot(_stateRoot).WithNumber(number).TestObject;
                     BlockTree.Head.Returns(head);
                     BlockTree.FindHeader(number).Returns(head.Header);
-                    BlockTree.NewHeadBlock += Raise.EventWith(new BlockEventArgs(head));
+                    BlockTree.OnUpdateMainChain += Raise.EventWith(new OnUpdateMainChainArgs(new List<Block>() { head }, true));
+                }
+            }
+
+            public void ShouldCopyAllValues()
+            {
+                foreach (KeyValuePair<byte[], byte[]?> keyValuePair in TrieDb.GetAll())
+                {
+                    CopyDb[keyValuePair.Key].Should().BeEquivalentTo(keyValuePair.Value);
                 }
             }
         }
@@ -254,6 +315,16 @@ namespace Nethermind.Blockchain.Test.FullPruning
                 {
                     get => _context[key];
                     set => _context[key] = value;
+                }
+
+                public void Set(ReadOnlySpan<byte> key, byte[]? value, WriteFlags flags = WriteFlags.None)
+                {
+                    _context.Set(key, value, flags);
+                }
+
+                public byte[]? Get(ReadOnlySpan<byte> key, ReadFlags flags = ReadFlags.None)
+                {
+                    return _context.Get(key, flags);
                 }
 
                 public void Commit()

@@ -66,7 +66,7 @@ namespace Nethermind.Evm
         SELFBALANCE = 0x47,
         BASEFEE = 0x48,
         DATAHASH = 0x49,
-        BEACON_STATE_ROOT = 0x4A, // Suggested 0x48 but it seems to be already in use
+        BEACON_ROOT = 0x4A, // Suggested 0x48 but it seems to be already in use
 
         POP = 0x50,
         MLOAD = 0x51,

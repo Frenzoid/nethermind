@@ -15,32 +15,30 @@ namespace Nethermind.Core.Test;
 /// </summary>
 public class TestMemDb : MemDb
 {
-    private List<byte[]> _readKeys = new();
-    private List<byte[]> _writeKeys = new();
+    private List<(byte[], ReadFlags)> _readKeys = new();
+    private List<(byte[], WriteFlags)> _writeKeys = new();
     private List<byte[]> _removedKeys = new();
 
     public Func<byte[], byte[]>? ReadFunc { get; set; }
     public Action<byte[]>? RemoveFunc { get; set; }
 
-    public override byte[]? this[ReadOnlySpan<byte> key]
+    public override byte[]? Get(ReadOnlySpan<byte> key, ReadFlags flags = ReadFlags.None)
     {
-        get
-        {
-            _readKeys.Add(key.ToArray());
+        _readKeys.Add((key.ToArray(), flags));
 
-            if (ReadFunc != null) return ReadFunc(key.ToArray());
-            return base[key];
-        }
-        set
-        {
-            _writeKeys.Add(key.ToArray());
-            base[key] = value;
-        }
+        if (ReadFunc != null) return ReadFunc(key.ToArray());
+        return base.Get(key, flags);
+    }
+
+    public override void Set(ReadOnlySpan<byte> key, byte[]? value, WriteFlags flags = WriteFlags.None)
+    {
+        _writeKeys.Add((key.ToArray(), flags));
+        base.Set(key, value, flags);
     }
 
     public override Span<byte> GetSpan(ReadOnlySpan<byte> key)
     {
-        return this[key];
+        return Get(key);
     }
 
     public override void Remove(ReadOnlySpan<byte> key)
@@ -57,16 +55,31 @@ public class TestMemDb : MemDb
 
     public void KeyWasRead(byte[] key, int times = 1)
     {
-        _readKeys.Count(it => Bytes.AreEqual(it, key)).Should().Be(times);
+        _readKeys.Count(it => Bytes.AreEqual(it.Item1, key)).Should().Be(times);
+    }
+
+    public void KeyWasReadWithFlags(byte[] key, ReadFlags flags, int times = 1)
+    {
+        _readKeys.Count(it => Bytes.AreEqual(it.Item1, key) && it.Item2 == flags).Should().Be(times);
     }
 
     public void KeyWasWritten(byte[] key, int times = 1)
     {
-        _writeKeys.Count(it => Bytes.AreEqual(it, key)).Should().Be(times);
+        _writeKeys.Count(it => Bytes.AreEqual(it.Item1, key)).Should().Be(times);
+    }
+
+    public void KeyWasWrittenWithFlags(byte[] key, WriteFlags flags, int times = 1)
+    {
+        _writeKeys.Count(it => Bytes.AreEqual(it.Item1, key) && it.Item2 == flags).Should().Be(times);
     }
 
     public void KeyWasRemoved(Func<byte[], bool> cond, int times = 1)
     {
         _removedKeys.Count(cond).Should().Be(times);
+    }
+
+    public override IBatch StartBatch()
+    {
+        return new InMemoryBatch(this);
     }
 }

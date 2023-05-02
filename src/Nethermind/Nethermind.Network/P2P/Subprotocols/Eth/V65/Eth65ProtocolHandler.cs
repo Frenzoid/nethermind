@@ -3,7 +3,6 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using Nethermind.Consensus;
 using Nethermind.Core;
 using Nethermind.Core.Collections;
@@ -48,25 +47,27 @@ namespace Nethermind.Network.P2P.Subprotocols.Eth.V65
         public override void HandleMessage(ZeroPacket message)
         {
             base.HandleMessage(message);
+
+            int size = message.Content.ReadableBytes;
             switch (message.PacketType)
             {
                 case Eth65MessageCode.PooledTransactions:
                     PooledTransactionsMessage pooledTxMsg
                         = Deserialize<PooledTransactionsMessage>(message.Content);
                     Metrics.Eth65PooledTransactionsReceived++;
-                    ReportIn(pooledTxMsg);
+                    ReportIn(pooledTxMsg, size);
                     Handle(pooledTxMsg);
                     break;
                 case Eth65MessageCode.GetPooledTransactions:
                     GetPooledTransactionsMessage getPooledTxMsg
                         = Deserialize<GetPooledTransactionsMessage>(message.Content);
-                    ReportIn(getPooledTxMsg);
+                    ReportIn(getPooledTxMsg, size);
                     Handle(getPooledTxMsg);
                     break;
                 case Eth65MessageCode.NewPooledTransactionHashes:
                     NewPooledTransactionHashesMessage newPooledTxMsg =
                         Deserialize<NewPooledTransactionHashesMessage>(message.Content);
-                    ReportIn(newPooledTxMsg);
+                    ReportIn(newPooledTxMsg, size);
                     Handle(newPooledTxMsg);
                     break;
             }
@@ -75,6 +76,9 @@ namespace Nethermind.Network.P2P.Subprotocols.Eth.V65
         protected virtual void Handle(NewPooledTransactionHashesMessage msg)
         {
             Metrics.Eth65NewPooledTransactionHashesReceived++;
+
+            AddNotifiedTransactions(msg.Hashes);
+
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             _pooledTxsRequestor.RequestTransactions(Send, msg.Hashes);
@@ -83,6 +87,14 @@ namespace Nethermind.Network.P2P.Subprotocols.Eth.V65
             if (Logger.IsTrace)
                 Logger.Trace($"OUT {Counter:D5} {nameof(NewPooledTransactionHashesMessage)} to {Node:c} " +
                              $"in {stopwatch.Elapsed.TotalMilliseconds}ms");
+        }
+
+        protected void AddNotifiedTransactions(IReadOnlyList<Keccak> hashes)
+        {
+            foreach (Keccak hash in hashes)
+            {
+                NotifiedTransactions.Set(hash);
+            }
         }
 
         private void Handle(GetPooledTransactionsMessage msg)
@@ -106,7 +118,7 @@ namespace Nethermind.Network.P2P.Subprotocols.Eth.V65
             {
                 if (_txPool.TryGetPendingTransaction(msg.Hashes[i], out Transaction tx))
                 {
-                    int txSize = tx.GetLength(_txDecoder);
+                    int txSize = tx.GetLength();
 
                     if (txSize > packetSizeLeft && txsToSend.Count > 0)
                     {
@@ -121,11 +133,11 @@ namespace Nethermind.Network.P2P.Subprotocols.Eth.V65
             return new PooledTransactionsMessage(txsToSend);
         }
 
-        public override void SendNewTransactions(IEnumerable<Transaction> txs, bool sendFullTx)
+        protected override void SendNewTransactionsCore(IEnumerable<Transaction> txs, bool sendFullTx)
         {
             if (sendFullTx)
             {
-                base.SendNewTransactions(txs, true);
+                base.SendNewTransactionsCore(txs, true);
                 return;
             }
 

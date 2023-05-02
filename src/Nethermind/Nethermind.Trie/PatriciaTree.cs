@@ -362,7 +362,7 @@ namespace Nethermind.Trie
 #endif
 
             TraverseContext traverseContext =
-                new(updatePath.Slice(0, nibblesCount), updateValue, isUpdate, ignoreMissingDelete);
+                new(updatePath[..nibblesCount], updateValue, isUpdate, ignoreMissingDelete);
 
             // lazy stack cleaning after the previous update
             if (traverseContext.IsUpdate)
@@ -386,7 +386,7 @@ namespace Nethermind.Trie
                     if (traverseContext.UpdateValue is not null)
                     {
                         if (_logger.IsTrace) _logger.Trace($"Setting new leaf node with value {traverseContext.UpdateValue}");
-                        byte[] key = updatePath.Slice(0, nibblesCount).ToArray();
+                        byte[] key = updatePath[..nibblesCount].ToArray();
                         RootRef = TrieNodeFactory.CreateLeaf(key, traverseContext.UpdateValue);
                     }
 
@@ -701,9 +701,8 @@ namespace Nethermind.Trie
                 }
 
                 int currentIndex = traverseContext.CurrentIndex + 1;
-                byte[] leafPath = traverseContext.UpdatePath.Slice(
-                    currentIndex,
-                    traverseContext.UpdatePath.Length - currentIndex).ToArray();
+                byte[] leafPath = traverseContext.UpdatePath[
+                    currentIndex..].ToArray();
                 TrieNode leaf = TrieNodeFactory.CreateLeaf(leafPath, traverseContext.UpdateValue);
                 ConnectNodes(leaf);
 
@@ -792,7 +791,7 @@ namespace Nethermind.Trie
 
             if (extensionLength != 0)
             {
-                ReadOnlySpan<byte> extensionPath = longerPath.Slice(0, extensionLength);
+                ReadOnlySpan<byte> extensionPath = longerPath[..extensionLength];
                 TrieNode extension = TrieNodeFactory.CreateExtension(extensionPath.ToArray());
                 _nodeStack.Push(new StackedNode(extension, 0));
             }
@@ -909,7 +908,7 @@ namespace Nethermind.Trie
         private byte[] TraverseNext(in TraverseContext traverseContext, int extensionLength, TrieNode next)
         {
             // Move large struct creation out of flow so doesn't force additional stack space
-            // in calling method even if not used 
+            // in calling method even if not used
             TraverseContext newContext = traverseContext.WithNewIndex(traverseContext.CurrentIndex + extensionLength);
             return TraverseNode(next, in newContext);
         }
@@ -1024,8 +1023,22 @@ namespace Nethermind.Trie
                 }
             }
 
+            ITrieNodeResolver resolver = TrieStore;
+            if (visitor.IsFullDbScan)
+            {
+                resolver = new TrieNodeResolverWithReadFlags(TrieStore, ReadFlags.HintCacheMiss);
+            }
+
             visitor.VisitTree(rootHash, trieVisitContext);
-            rootRef?.Accept(visitor, TrieStore, trieVisitContext);
+            if (visitingOptions.FullScanMemoryBudget != 0)
+            {
+                BatchedTrieVisitor batchedTrieVisitor = new(visitor, resolver, visitingOptions);
+                batchedTrieVisitor.Start(rootHash, trieVisitContext);
+            }
+            else
+            {
+                rootRef?.Accept(visitor, resolver, trieVisitContext);
+            }
         }
 
         [DoesNotReturn]

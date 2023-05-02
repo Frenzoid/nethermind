@@ -237,7 +237,7 @@ namespace Nethermind.TxPool
                     discoveredForPendingTxs++;
                 }
 
-                if (transaction.IsEip1559)
+                if (transaction.Supports1559)
                 {
                     eip1559Txs++;
                 }
@@ -261,10 +261,9 @@ namespace Nethermind.TxPool
 
         public void AddPeer(ITxPoolPeer peer)
         {
-            PeerInfo peerInfo = new(peer);
-            if (_broadcaster.AddPeer(peerInfo))
+            if (_broadcaster.AddPeer(peer))
             {
-                _broadcaster.BroadcastOnce(peerInfo, _transactionSnapshot ??= _transactions.GetSnapshot());
+                _broadcaster.BroadcastOnce(peer, _transactionSnapshot ??= _transactions.GetSnapshot());
 
                 if (_logger.IsTrace) _logger.Trace($"Added a peer to TX pool: {peer}");
             }
@@ -354,7 +353,7 @@ namespace Nethermind.TxPool
                 {
                     _transactions.UpdateGroup(tx.SenderAddress!, state.SenderAccount, UpdateBucketWithAddedTransaction);
                     Metrics.PendingTransactionsAdded++;
-                    if (tx.IsEip1559) { Metrics.Pending1559TransactionsAdded++; }
+                    if (tx.Supports1559) { Metrics.Pending1559TransactionsAdded++; }
 
                     if (removed is not null)
                     {
@@ -413,11 +412,8 @@ namespace Nethermind.TxPool
                 }
                 else
                 {
-                    if (previousTxBottleneck is null)
-                    {
-                        previousTxBottleneck = tx.CalculateAffordableGasPrice(_specProvider.GetCurrentHeadSpec().IsEip1559Enabled,
+                    previousTxBottleneck ??= tx.CalculateAffordableGasPrice(_specProvider.GetCurrentHeadSpec().IsEip1559Enabled,
                             _headInfo.CurrentBaseFee, balance);
-                    }
 
                     if (tx.Nonce == currentNonce + i)
                     {
@@ -475,7 +471,7 @@ namespace Nethermind.TxPool
                 {
                     shouldBeDumped = true;
                 }
-                else if (!tx.IsEip1559)
+                else if (!tx.Supports1559)
                 {
                     shouldBeDumped = UInt256.MultiplyOverflow(tx.GasPrice, (UInt256)tx.GasLimit, out UInt256 cost);
                     shouldBeDumped |= UInt256.AddOverflow(cost, tx.Value, out cost);
