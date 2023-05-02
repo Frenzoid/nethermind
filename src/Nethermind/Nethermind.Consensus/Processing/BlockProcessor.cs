@@ -71,7 +71,7 @@ public partial class BlockProcessor : IBlockProcessor
         _withdrawalProcessor = withdrawalProcessor ?? new WithdrawalProcessor(stateProvider, logManager);
         _rewardCalculator = rewardCalculator ?? throw new ArgumentNullException(nameof(rewardCalculator));
         _blockTransactionsExecutor = blockTransactionsExecutor ?? throw new ArgumentNullException(nameof(blockTransactionsExecutor));
-        _blockExplorer = blocckTree ?? throw new ArgumentNullException(nameof(rewardCalculator));
+        _blockExplorer = blocckTree ?? throw new ArgumentNullException(nameof(blocckTree));
 
         _receiptsTracer = new BlockReceiptsTracer();
     }
@@ -213,22 +213,24 @@ public partial class BlockProcessor : IBlockProcessor
         return (block, receipts);
     }
 
-        // TODO: block processor pipeline
-        private void ValidateProcessedBlock(Block suggestedBlock, ProcessingOptions options, Block block, TxReceipt[] receipts)
+    // TODO: block processor pipeline
+    private void ValidateProcessedBlock(Block suggestedBlock, ProcessingOptions options, Block block, TxReceipt[] receipts)
+    {
+        if (!options.ContainsFlag(ProcessingOptions.NoValidation) && !_blockValidator.ValidateProcessedBlock(block, receipts, suggestedBlock))
         {
-            if (!options.ContainsFlag(ProcessingOptions.NoValidation) && !_blockValidator.ValidateProcessedBlock(block, receipts, suggestedBlock))
-            {
-                if (_logger.IsError) _logger.Error($"Processed block is not valid {suggestedBlock.ToString(Block.Format.FullHashAndNumber)}");
-                if (_logger.IsError) _logger.Error($"Suggested block TD: {suggestedBlock.TotalDifficulty}, Suggested block IsPostMerge {suggestedBlock.IsPostMerge}, Block TD: {block.TotalDifficulty}, Block IsPostMerge {block.IsPostMerge}");
-                throw new InvalidBlockException(suggestedBlock);
-            }
+            if (_logger.IsError) _logger.Error($"Processed block is not valid {suggestedBlock.ToString(Block.Format.FullHashAndNumber)}");
+            if (_logger.IsError) _logger.Error($"Suggested block TD: {suggestedBlock.TotalDifficulty}, Suggested block IsPostMerge {suggestedBlock.IsPostMerge}, Block TD: {block.TotalDifficulty}, Block IsPostMerge {block.IsPostMerge}");
+            throw new InvalidBlockException(suggestedBlock);
         }
+    }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private UInt256 ConvertToSlop(UInt256 timestamp)
-        {
-            return (timestamp - 1438269973 )/ 12;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private UInt256 ConvertToSlot(UInt256 blockTimestamp)
+    {
+        UInt256 BeaconGenesisStamp = 1438269973;
+        UInt256 secondsPerSlot = 12;
+        return (blockTimestamp - BeaconGenesisStamp) / secondsPerSlot;
+    }
 
     // TODO: block processor pipeline
     protected virtual TxReceipt[] ProcessBlock(
@@ -240,8 +242,8 @@ public partial class BlockProcessor : IBlockProcessor
 
             if (spec.BeaconStateRootAvailable)
             {
-                var startTimestamp = ConvertToSlop(_blockExplorer.FindBlock(block.ParentHash).Header.Timestamp);
-                var endTimestamp = ConvertToSlop(block.Header.Timestamp);
+                var startTimestamp = ConvertToSlot(_blockExplorer.FindBlock(block.ParentHash).Header.Timestamp);
+                var endTimestamp = ConvertToSlot(block.Header.Timestamp);
 
                 for(var slot = startTimestamp; slot < endTimestamp; slot++) {
                     UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out var result);
