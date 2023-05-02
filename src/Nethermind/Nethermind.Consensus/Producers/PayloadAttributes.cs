@@ -21,12 +21,11 @@ public class PayloadAttributes
 
     public Keccak PrevRandao { get; set; }
 
-    public Keccak? BeaconStateRoot { get; set; }
-
     public Address SuggestedFeeRecipient { get; set; }
 
     public IList<Withdrawal>? Withdrawals { get; set; }
 
+    public Keccak? BeaconStateRoot { get; set; }
     /// <summary>Gets or sets the gas limit.</summary>
     /// <remarks>Used for MEV-Boost only.</remarks>
     public long? GasLimit { get; set; }
@@ -39,15 +38,14 @@ public class PayloadAttributes
             .Append($"{nameof(Timestamp)}: {Timestamp}, ")
             .Append($"{nameof(PrevRandao)}: {PrevRandao}, ")
             .Append($"{nameof(SuggestedFeeRecipient)}: {SuggestedFeeRecipient}");
-
-        if (BeaconStateRoot is not null)
-        {
-            sb.Append($"{nameof(BeaconStateRoot)}: {BeaconStateRoot}");
-        }
-
         if (Withdrawals is not null)
         {
             sb.Append($", {nameof(Withdrawals)} count: {Withdrawals.Count}");
+        }
+
+        if (BeaconStateRoot is not null)
+        {
+            sb.Append($", {nameof(BeaconStateRoot)}: {BeaconStateRoot}");
         }
 
         sb.Append('}');
@@ -61,7 +59,9 @@ public static class PayloadAttributesExtensions
     public static string ComputePayloadId(this PayloadAttributes payloadAttributes, BlockHeader parentHeader)
     {
         bool hasWithdrawals = payloadAttributes.Withdrawals is not null;
-        Span<byte> inputSpan = stackalloc byte[32 + 32 + 32 + 20 + (hasWithdrawals ? 32 : 0)];
+        bool hasBeaconStateRoot = payloadAttributes.BeaconStateRoot is not null;
+
+        Span<byte> inputSpan = stackalloc byte[32 + 32 + 32 + 20 + (hasWithdrawals ? 32 : 0) + (hasBeaconStateRoot ? 32 : 0)];
 
         parentHeader.Hash!.Bytes.CopyTo(inputSpan[..32]);
         BinaryPrimitives.WriteUInt64BigEndian(inputSpan.Slice(56, 8), payloadAttributes.Timestamp);
@@ -75,6 +75,11 @@ public static class PayloadAttributesExtensions
                 : new WithdrawalTrie(payloadAttributes.Withdrawals).RootHash;
 
             withdrawalsRootHash.Bytes.CopyTo(inputSpan[116..]);
+        }
+
+        if (hasBeaconStateRoot)
+        {
+            payloadAttributes.BeaconStateRoot.Bytes.CopyTo(inputSpan[(116 + (hasWithdrawals ? 32 : 0))..]);
         }
 
         ValueKeccak inputHash = ValueKeccak.Compute(inputSpan);

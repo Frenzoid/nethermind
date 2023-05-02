@@ -84,7 +84,7 @@ namespace Nethermind.Serialization.Rlp
             {
                 blockHeader.WithdrawalsRoot = decoderContext.DecodeKeccak();
 
-                if (itemsRemaining >= 3)
+                if (itemsRemaining >= 3 && decoderContext.Position != headerCheck)
                 {
                     blockHeader.BeaconStateRoot = decoderContext.DecodeKeccak();
                 }
@@ -170,7 +170,7 @@ namespace Nethermind.Serialization.Rlp
             {
                 blockHeader.WithdrawalsRoot = rlpStream.DecodeKeccak();
 
-                if (itemsRemaining >= 3)
+                if (itemsRemaining >= 3 && rlpStream.Position != headerCheck)
                 {
                     blockHeader.BeaconStateRoot = rlpStream.DecodeKeccak();
                 }
@@ -240,7 +240,7 @@ namespace Nethermind.Serialization.Rlp
 
             if (header.BeaconStateRoot is not null)
             {
-                rlpStream.Encode(header.BeaconStateRoot?? Keccak.Zero);
+                rlpStream.Encode(header.BeaconStateRoot ?? Keccak.Zero);
             }
 
             if (header.ExcessDataGas is not null)

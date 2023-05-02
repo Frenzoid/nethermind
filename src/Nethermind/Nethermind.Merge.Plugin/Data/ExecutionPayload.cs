@@ -86,6 +86,12 @@ public class ExecutionPayload
     public IEnumerable<Withdrawal>? Withdrawals { get; set; }
 
     /// <summary>
+    /// Gets or Sets the <see cref="BeaconStateRoot"/> as defined in
+    /// <see href="https://eips.ethereum.org/EIPS/eip-4788">EIP-4788</see>.
+    /// </summary>
+    public Keccak? BeaconStateRoot { get; set; }
+
+    /// <summary>
     /// Gets or sets <see cref="Block.ExcessDataGas"/> as defined in
     /// <see href="https://eips.ethereum.org/EIPS/eip-4844">EIP-4844</see>.
     /// </summary>
