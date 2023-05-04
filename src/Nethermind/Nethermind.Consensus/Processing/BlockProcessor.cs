@@ -35,7 +35,7 @@ public partial class BlockProcessor : IBlockProcessor
     private readonly IStorageProvider _storageProvider;
     private readonly IRewardCalculator _rewardCalculator;
     private readonly IBlockProcessor.IBlockTransactionsExecutor _blockTransactionsExecutor;
-    private readonly IBlockTree _blockExplorer;
+    private readonly IBlockTree _blockTree;
 
     private const int MaxUncommittedBlocks = 64;
 
@@ -58,7 +58,7 @@ public partial class BlockProcessor : IBlockProcessor
         IReceiptStorage? receiptStorage,
         IWitnessCollector? witnessCollector,
         ILogManager? logManager,
-        IBlockTree? blocckTree,
+        IBlockTree? blockTree,
         IWithdrawalProcessor? withdrawalProcessor = null)
     {
         _logger = logManager?.GetClassLogger() ?? throw new ArgumentNullException(nameof(logManager));
@@ -71,7 +71,7 @@ public partial class BlockProcessor : IBlockProcessor
         _withdrawalProcessor = withdrawalProcessor ?? new WithdrawalProcessor(stateProvider, logManager);
         _rewardCalculator = rewardCalculator ?? throw new ArgumentNullException(nameof(rewardCalculator));
         _blockTransactionsExecutor = blockTransactionsExecutor ?? throw new ArgumentNullException(nameof(blockTransactionsExecutor));
-        _blockExplorer = blocckTree ?? throw new ArgumentNullException(nameof(blocckTree));
+        _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
 
         _receiptsTracer = new BlockReceiptsTracer();
     }
@@ -240,22 +240,22 @@ public partial class BlockProcessor : IBlockProcessor
     {
         IReleaseSpec spec = _specProvider.GetSpec(block.Header);
 
-            if (spec.BeaconStateRootAvailable)
-            {
-                var startTimestamp = ConvertToSlot(_blockExplorer.FindBlock(block.ParentHash).Header.Timestamp);
-                var endTimestamp = ConvertToSlot(block.Header.Timestamp);
+        if (spec.BeaconStateRootAvailable)
+        {
+            var startTimestamp = ConvertToSlot(_blockTree.FindBlock(block.ParentHash).Header.Timestamp);
+            var endTimestamp = ConvertToSlot(block.Header.Timestamp);
 
-                for(var slot = startTimestamp; slot < endTimestamp; slot++) {
-                    UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out var result);
-                    StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, result);
-                    Keccak beaconStateRootValue = block.Header.BeaconStateRoot ?? throw new InvalidBlockException(block);
-                    _storageProvider.Set(storageCell, beaconStateRootValue.Bytes);
-                }
+            for(var slot = startTimestamp; slot < endTimestamp; slot++) {
+                UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out var result);
+                StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, result);
+                Keccak beaconStateRootValue = block.Header.BeaconStateRoot ?? throw new InvalidBlockException(block);
+                _storageProvider.Set(storageCell, beaconStateRootValue.Bytes);
             }
+        }
 
-            _receiptsTracer.SetOtherTracer(blockTracer);
-            _receiptsTracer.StartNewBlockTrace(block);
-            TxReceipt[] receipts = _blockTransactionsExecutor.ProcessTransactions(block, options, _receiptsTracer, spec);
+        _receiptsTracer.SetOtherTracer(blockTracer);
+        _receiptsTracer.StartNewBlockTrace(block);
+        TxReceipt[] receipts = _blockTransactionsExecutor.ProcessTransactions(block, options, _receiptsTracer, spec);
 
         block.Header.ReceiptsRoot = receipts.GetReceiptsRoot(spec, block.ReceiptsRoot);
         ApplyMinerRewards(block, blockTracer, spec);
