@@ -61,9 +61,8 @@ public class VirtualMachine : IVirtualMachine
     private static readonly LruCache<KeccakKey, CodeInfo> _codeCache = new(MemoryAllowance.CodeCacheSize, MemoryAllowance.CodeCacheSize, "VM bytecodes");
     private readonly ILogger _logger;
     private IWorldState _worldState;
-    private IStateProvider _state;
+    private IWorldState _state;
     private readonly Stack<EvmState> _stateStack = new();
-    private IStorageProvider _storage;
     private (Address Address, bool ShouldDelete) _parityTouchBugAccount = (Address.FromNumber(3), false);
     private Dictionary<Address, CodeInfo>? _precompiles;
     private byte[] _returnDataBuffer = Array.Empty<byte>();
@@ -87,8 +86,7 @@ public class VirtualMachine : IVirtualMachine
     {
         _txTracer = txTracer;
 
-        _state = worldState.StateProvider;
-        _storage = worldState.StorageProvider;
+        _state = worldState;
         _worldState = worldState;
 
         IReleaseSpec spec = _specProvider.GetSpec(state.Env.TxExecutionContext.Header.Number, state.Env.TxExecutionContext.Header.Timestamp);
@@ -254,8 +252,7 @@ public class VirtualMachine : IVirtualMachine
                         bool invalidCode = CodeDepositHandler.CodeIsInvalid(spec, callResult.Output);
                         if (gasAvailableForCodeDeposit >= codeDepositGasCost && !invalidCode)
                         {
-                            Keccak codeHash = _state.UpdateCode(callResult.Output);
-                            _state.UpdateCodeHash(callCodeOwner, codeHash, spec);
+                            _state.InsertCode(callCodeOwner, callResult.Output, spec);
                             currentState.GasAvailable -= codeDepositGasCost;
 
                             if (_txTracer.IsTracingActions)
@@ -378,7 +375,6 @@ public class VirtualMachine : IVirtualMachine
 
     public CodeInfo GetCachedCodeInfo(IWorldState worldState, Address codeSource, IReleaseSpec vmSpec)
     {
-        IStateProvider state = worldState.StateProvider;
         if (codeSource.IsPrecompile(vmSpec))
         {
             if (_precompiles is null)
@@ -389,11 +385,11 @@ public class VirtualMachine : IVirtualMachine
             return _precompiles[codeSource];
         }
 
-        Keccak codeHash = state.GetCodeHash(codeSource);
+        Keccak codeHash = worldState.GetCodeHash(codeSource);
         CodeInfo cachedCodeInfo = _codeCache.Get(codeHash);
         if (cachedCodeInfo is null)
         {
-            byte[] code = state.GetCode(codeHash);
+            byte[] code = worldState.GetCode(codeHash);
 
             if (code is null)
             {
@@ -406,7 +402,7 @@ public class VirtualMachine : IVirtualMachine
         else
         {
             // need to touch code so that any collectors that track database access are informed
-            state.TouchCode(codeHash);
+            worldState.TouchCode(codeHash);
         }
 
         return cachedCodeInfo;
@@ -1377,7 +1373,7 @@ public class VirtualMachine : IVirtualMachine
                             stack.PopUInt256(out UInt256 slot);
                             UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out UInt256 resultKey);
                             StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, resultKey);
-                            byte[] beaconStateRootBytes = _storage.Get(storageCell);
+                            byte[] beaconStateRootBytes = _state.Get(storageCell);
                             stack.PushBytes(beaconStateRootBytes);
                         }
                         else
@@ -1518,7 +1514,7 @@ public class VirtualMachine : IVirtualMachine
                             StorageAccessType.SLOAD,
                             spec)) goto OutOfGas;
 
-                        byte[] value = _storage.Get(storageCell);
+                        byte[] value = _state.Get(storageCell);
                         stack.PushBytes(value);
 
                         if (_txTracer.IsTracingOpLevelStorage)
@@ -1564,7 +1560,7 @@ public class VirtualMachine : IVirtualMachine
                             StorageAccessType.SSTORE,
                             spec)) goto OutOfGas;
 
-                        Span<byte> currentValue = _storage.Get(storageCell);
+                        Span<byte> currentValue = _state.Get(storageCell);
                         // Console.WriteLine($"current: {currentValue.ToHexString()} newValue {newValue.ToHexString()}");
                         bool currentIsZero = currentValue.IsZero();
 
@@ -1594,7 +1590,7 @@ public class VirtualMachine : IVirtualMachine
                             }
                             else // net metered, C != N
                             {
-                                Span<byte> originalValue = _storage.GetOriginal(storageCell);
+                                Span<byte> originalValue = _state.GetOriginal(storageCell);
                                 bool originalIsZero = originalValue.IsZero();
 
                                 bool currentSameAsOriginal = Bytes.AreEqual(originalValue, currentValue);
@@ -1658,7 +1654,7 @@ public class VirtualMachine : IVirtualMachine
                         if (!newSameAsCurrent)
                         {
                             Span<byte> valueToStore = newIsZero ? BytesZero : newValue;
-                            _storage.Set(storageCell, valueToStore.ToArray());
+                            _state.Set(storageCell, valueToStore.ToArray());
                         }
 
                         if (_txTracer.IsTracingInstructions)
@@ -1687,7 +1683,7 @@ public class VirtualMachine : IVirtualMachine
                         stack.PopUInt256(out UInt256 storageIndex);
                         StorageCell storageCell = new(env.ExecutingAccount, storageIndex);
 
-                        byte[] value = _storage.GetTransientState(storageCell);
+                        byte[] value = _state.GetTransientState(storageCell);
                         stack.PushBytes(value);
 
                         if (_txTracer.IsTracingOpLevelStorage)
@@ -1721,7 +1717,7 @@ public class VirtualMachine : IVirtualMachine
 
                         StorageCell storageCell = new(env.ExecutingAccount, storageIndex);
                         byte[] currentValue = newValue.ToArray();
-                        _storage.SetTransientState(storageCell, currentValue);
+                        _state.SetTransientState(storageCell, currentValue);
 
                         if (_txTracer.IsTracingOpLevelStorage)
                         {
@@ -2028,7 +2024,7 @@ public class VirtualMachine : IVirtualMachine
                         }
                         else if (_state.IsDeadAccount(contractAddress))
                         {
-                            _storage.ClearStorage(contractAddress);
+                            _state.ClearStorage(contractAddress);
                         }
 
                         _state.SubtractFromBalance(env.ExecutingAccount, value, spec);
