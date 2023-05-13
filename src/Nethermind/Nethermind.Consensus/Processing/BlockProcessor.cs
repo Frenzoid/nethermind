@@ -239,7 +239,8 @@ public partial class BlockProcessor : IBlockProcessor
             var startTimestamp = ConvertToSlot(_blockTree.FindBlock(block.ParentHash).Header.Timestamp);
             var endTimestamp = ConvertToSlot(block.Header.Timestamp);
 
-            for(var slot = startTimestamp; slot < endTimestamp; slot++) {
+            for (var slot = startTimestamp; slot < endTimestamp; slot++)
+            {
                 UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out var result);
                 StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, result);
                 Keccak beaconStateRootValue = block.Header.BeaconStateRoot ?? throw new InvalidBlockException(block);
