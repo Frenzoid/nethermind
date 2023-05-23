@@ -218,14 +218,6 @@ public partial class BlockProcessor : IBlockProcessor
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private UInt256 ConvertToSlot(UInt256 blockTimestamp)
-    {
-        UInt256 BeaconGenesisStamp = 1438269973;
-        UInt256 secondsPerSlot = 12;
-        return (blockTimestamp - BeaconGenesisStamp) / secondsPerSlot;
-    }
-
     // TODO: block processor pipeline
     protected virtual TxReceipt[] ProcessBlock(
         Block block,
@@ -236,8 +228,9 @@ public partial class BlockProcessor : IBlockProcessor
 
         if (spec.BeaconStateRootAvailable)
         {
-            var startTimestamp = ConvertToSlot(_blockTree.FindBlock(block.ParentHash).Header.Timestamp);
-            var endTimestamp = ConvertToSlot(block.Header.Timestamp);
+            var startTimestamp = _blockTree.FindBlock(block.ParentHash).GetTimeSlot();
+            startTimestamp = startTimestamp == 0 ? block.Header.CurrentSlot.Value - 1 : startTimestamp;
+            var endTimestamp = block.GetTimeSlot();
 
             for (var slot = startTimestamp; slot < endTimestamp; slot++)
             {

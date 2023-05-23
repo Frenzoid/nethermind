@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Runtime.CompilerServices;
 using Nethermind.Core.Specs;
 using Nethermind.Int256;
 
@@ -8,6 +9,17 @@ namespace Nethermind.Core;
 
 public static class BlockExtensions
 {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ulong GetTimeSlot(this Block block)
+        => GetTimeSlot(block.Header);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ulong GetTimeSlot(this BlockHeader block)
+    {
+        ulong BeaconGenesisStamp = 1438269973; // get this from config
+        ulong secondsPerSlot = 12;
+        return (block.Timestamp - BeaconGenesisStamp) / secondsPerSlot;
+    }
     public static bool IsPoS(this Block? block) => block?.Header.IsPoS() == true;
 
     public static bool IsPoS(this BlockHeader? blockHeader) => blockHeader is not null && !blockHeader.IsGenesis && (blockHeader.IsPostMerge || blockHeader.Difficulty == 0);

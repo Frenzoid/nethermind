@@ -67,7 +67,7 @@ public class BlockHeader
     public Keccak? WithdrawalsRoot { get; set; }
     public UInt256? ExcessDataGas { get; set; }
     public Keccak? BeaconStateRoot { get; set; }
-
+    public ulong? CurrentSlot { get; set; }
     public bool HasBody => (TxRoot is not null && TxRoot != Keccak.EmptyTreeHash)
         || (UnclesHash is not null && UnclesHash != Keccak.OfAnEmptySequenceRlp)
         || (WithdrawalsRoot is not null && WithdrawalsRoot != Keccak.EmptyTreeHash);
@@ -107,6 +107,7 @@ public class BlockHeader
         if (BeaconStateRoot is not null)
         {
             builder.AppendLine($"{indent}BeaconStateRoot: {BeaconStateRoot}");
+            builder.AppendLine($"{indent}CurrentSlot: {CurrentSlot}");
         }
         builder.AppendLine($"{indent}IsPostMerge: {IsPostMerge}");
         builder.AppendLine($"{indent}TotalDifficulty: {TotalDifficulty}");
