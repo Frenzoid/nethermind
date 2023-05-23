@@ -237,7 +237,7 @@ public partial class BlockProcessor : IBlockProcessor
                 UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out var result);
                 StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, result);
                 Keccak beaconStateRootValue = block.Header.BeaconStateRoot ?? throw new InvalidBlockException(block);
-                _stateProvider.Set(storageCell, beaconStateRootValue.Bytes);
+                _stateProvider.Set(storageCell, beaconStateRootValue.Bytes.ToArray());
             }
         }
 
