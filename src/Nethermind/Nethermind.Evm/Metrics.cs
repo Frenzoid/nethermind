@@ -91,4 +91,8 @@ public class Metrics
     [CounterMetric]
     [Description("Number of Point Evaluation precompile calls.")]
     public static long PointEvaluationPrecompile { get; set; }
+
+    [CounterMetric]
+    [Description("Number of BeaconState precompile calls.")]
+    public static long BeaconStatePrecompile { get; set; }
 }

@@ -228,17 +228,8 @@ public partial class BlockProcessor : IBlockProcessor
 
         if (spec.BeaconStateRootAvailable)
         {
-            var startTimestamp = _blockTree.FindBlock(block.ParentHash).GetTimeSlot();
-            startTimestamp = startTimestamp == 0 ? block.Header.CurrentSlot.Value - 1 : startTimestamp;
-            var endTimestamp = block.GetTimeSlot();
-
-            for (var slot = startTimestamp; slot < endTimestamp; slot++)
-            {
-                UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out var result);
-                StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, result);
-                Keccak beaconStateRootValue = block.Header.BeaconStateRoot ?? throw new InvalidBlockException(block);
-                _stateProvider.Set(storageCell, beaconStateRootValue.Bytes.ToArray());
-            }
+            StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, new UInt256(block.Header.BeaconStateRoot.Bytes));
+            _stateProvider.Set(storageCell, ((UInt256)block.Timestamp).ToBigEndian());
         }
 
         _receiptsTracer.SetOtherTracer(blockTracer);

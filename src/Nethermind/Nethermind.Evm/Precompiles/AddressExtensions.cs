@@ -5,6 +5,7 @@ using System;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
+using Nethermind.Evm.Precompiles.Statefull;
 
 namespace Nethermind.Evm.Precompiles
 {
@@ -14,6 +15,11 @@ namespace Nethermind.Evm.Precompiles
 
         public static bool IsPrecompile(this Address address, IReleaseSpec releaseSpec)
         {
+            if(address == BeaconStateRootPrecompile.Address)
+            {
+                return releaseSpec.BeaconStateRootAvailable;
+            }
+
             if (!Bytes.AreEqual(address.Bytes.AsSpan(0, 19), _nineteenZeros))
             {
                 return false;
@@ -41,6 +47,7 @@ namespace Nethermind.Evm.Precompiles
                 17 => releaseSpec.Bls381Enabled,
                 18 => releaseSpec.Bls381Enabled,
                 20 => releaseSpec.IsEip4844Enabled,
+                
                 _ => false
             };
         }

@@ -21,6 +21,7 @@ using Nethermind.Logging;
 using Nethermind.State;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
+using Nethermind.Evm.Precompiles.Statefull;
 
 [assembly: InternalsVisibleTo("Nethermind.Evm.Test")]
 
@@ -68,8 +69,6 @@ public class VirtualMachine : IVirtualMachine
     private byte[] _returnDataBuffer = Array.Empty<byte>();
     private ITxTracer _txTracer = NullTxTracer.Instance;
 
-    public static readonly Address HISTORY_STORAGE_ADDRESS = Address.FromNumber(UInt256.MaxValue - 2);
-    public static readonly UInt256 SLOTS_PER_HISTORICAL_ROOT = (UInt256)8192;
     public VirtualMachine(
         IBlockhashProvider? blockhashProvider,
         ISpecProvider? specProvider,
@@ -417,29 +416,30 @@ public class VirtualMachine : IVirtualMachine
     {
         _precompiles = new Dictionary<Address, CodeInfo>
         {
-            [EcRecoverPrecompile.Instance.Address] = new(EcRecoverPrecompile.Instance),
-            [Sha256Precompile.Instance.Address] = new(Sha256Precompile.Instance),
-            [Ripemd160Precompile.Instance.Address] = new(Ripemd160Precompile.Instance),
-            [IdentityPrecompile.Instance.Address] = new(IdentityPrecompile.Instance),
+            [EcRecoverPrecompile.Address] = new(EcRecoverPrecompile.Instance),
+            [Sha256Precompile.Address] = new(Sha256Precompile.Instance),
+            [Ripemd160Precompile.Address] = new(Ripemd160Precompile.Instance),
+            [IdentityPrecompile.Address] = new(IdentityPrecompile.Instance),
 
-            [Bn254AddPrecompile.Instance.Address] = new(Bn254AddPrecompile.Instance),
-            [Bn254MulPrecompile.Instance.Address] = new(Bn254MulPrecompile.Instance),
-            [Bn254PairingPrecompile.Instance.Address] = new(Bn254PairingPrecompile.Instance),
-            [ModExpPrecompile.Instance.Address] = new(ModExpPrecompile.Instance),
+            [Bn254AddPrecompile.Address] = new(Bn254AddPrecompile.Instance),
+            [Bn254MulPrecompile.Address] = new(Bn254MulPrecompile.Instance),
+            [Bn254PairingPrecompile.Address] = new(Bn254PairingPrecompile.Instance),
+            [ModExpPrecompile.Address] = new(ModExpPrecompile.Instance),
 
-            [Blake2FPrecompile.Instance.Address] = new(Blake2FPrecompile.Instance),
+            [Blake2FPrecompile.Address] = new(Blake2FPrecompile.Instance),
 
-            [G1AddPrecompile.Instance.Address] = new(G1AddPrecompile.Instance),
-            [G1MulPrecompile.Instance.Address] = new(G1MulPrecompile.Instance),
-            [G1MultiExpPrecompile.Instance.Address] = new(G1MultiExpPrecompile.Instance),
-            [G2AddPrecompile.Instance.Address] = new(G2AddPrecompile.Instance),
-            [G2MulPrecompile.Instance.Address] = new(G2MulPrecompile.Instance),
-            [G2MultiExpPrecompile.Instance.Address] = new(G2MultiExpPrecompile.Instance),
-            [PairingPrecompile.Instance.Address] = new(PairingPrecompile.Instance),
-            [MapToG1Precompile.Instance.Address] = new(MapToG1Precompile.Instance),
-            [MapToG2Precompile.Instance.Address] = new(MapToG2Precompile.Instance),
+            [G1AddPrecompile.Address] = new(G1AddPrecompile.Instance),
+            [G1MulPrecompile.Address] = new(G1MulPrecompile.Instance),
+            [G1MultiExpPrecompile.Address] = new(G1MultiExpPrecompile.Instance),
+            [G2AddPrecompile.Address] = new(G2AddPrecompile.Instance),
+            [G2MulPrecompile.Address] = new(G2MulPrecompile.Instance),
+            [G2MultiExpPrecompile.Address] = new(G2MultiExpPrecompile.Instance),
+            [PairingPrecompile.Address] = new(PairingPrecompile.Instance),
+            [MapToG1Precompile.Address] = new(MapToG1Precompile.Instance),
+            [MapToG2Precompile.Address] = new(MapToG2Precompile.Instance),
 
-            [PointEvaluationPrecompile.Instance.Address] = new(PointEvaluationPrecompile.Instance),
+            [PointEvaluationPrecompile.Address] = new(PointEvaluationPrecompile.Instance),
+            [BeaconStateRootPrecompile.Address] = new(BeaconStateRootPrecompile.Instance(_state)),
         };
     }
 
@@ -1420,23 +1420,6 @@ public class VirtualMachine : IVirtualMachine
                         {
                             UInt256 diff = txCtx.Header.Difficulty;
                             stack.PushUInt256(in diff);
-                        }
-                        break;
-                    }
-                case Instruction.BEACON_ROOT:
-                    {
-                        if (txCtx.Header.IsPostMerge && spec.BeaconStateRootAvailable)
-                        {
-                            if (!UpdateGas(GasCostOf.BeaconStateRoot, ref gasAvailable)) goto OutOfGas;
-                            stack.PopUInt256(out UInt256 slot);
-                            UInt256.Mod(slot, SLOTS_PER_HISTORICAL_ROOT, out UInt256 resultKey);
-                            StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, resultKey);
-                            byte[] beaconStateRootBytes = _state.Get(storageCell);
-                            stack.PushBytes(beaconStateRootBytes);
-                        }
-                        else
-                        {
-                            goto InvalidInstruction;
                         }
                         break;
                     }

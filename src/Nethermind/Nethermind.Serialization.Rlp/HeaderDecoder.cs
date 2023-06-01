@@ -92,7 +92,6 @@ namespace Nethermind.Serialization.Rlp
                 if (itemsRemaining >= 3 && decoderContext.Position != headerCheck)
                 {
                     blockHeader.BeaconStateRoot = decoderContext.DecodeKeccak();
-                    blockHeader.CurrentSlot = blockHeader.CurrentSlot; // redundant, can be recalculated in O(1)
                 }
             }
 
@@ -179,7 +178,6 @@ namespace Nethermind.Serialization.Rlp
                 if (itemsRemaining >= 3 && rlpStream.Position != headerCheck)
                 {
                     blockHeader.BeaconStateRoot = rlpStream.DecodeKeccak();
-                    blockHeader.CurrentSlot = blockHeader.CurrentSlot; // redundant, can be recalculated in O(1)
                 }
             }
 
@@ -248,7 +246,6 @@ namespace Nethermind.Serialization.Rlp
             if (header.BeaconStateRoot is not null)
             {
                 rlpStream.Encode(header.BeaconStateRoot ?? Keccak.Zero);
-                rlpStream.Encode(header.CurrentSlot ?? ulong.MinValue);
             }
         }
 
