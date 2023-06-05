@@ -36,6 +36,12 @@ namespace Nethermind.Consensus.Processing
                 for (int i = 0; i < block.Transactions.Length; i++)
                 {
                     Transaction currentTx = block.Transactions[i];
+
+                    if (currentTx.SenderAddress == Address.SystemUser)
+                    {
+                        continue;
+                    }
+
                     ProcessTransaction(block, currentTx, i, receiptsTracer, processingOptions);
                 }
                 return receiptsTracer.TxReceipts.ToArray();

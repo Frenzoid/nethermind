@@ -39,8 +39,11 @@ namespace Nethermind.Blockchain.Contracts
         /// <param name="sender">Sender of the transaction - caller of the function.</param>
         /// <param name="arguments">Arguments to the function.</param>
         /// <returns>Deserialized return value of the <see cref="functionName"/> based on its definition.</returns>
+        protected object[] Call(BlockHeader header, IBlockTracer? blockTracer, string functionName, Address sender, params object[] arguments) =>
+            Call(header, blockTracer, functionName, sender, DefaultContractGasLimit, arguments);
+
         protected object[] Call(BlockHeader header, string functionName, Address sender, params object[] arguments) =>
-            Call(header, functionName, sender, DefaultContractGasLimit, arguments);
+            Call(header, null, functionName, sender, arguments);
 
         /// <summary>
         /// Calls the function in contract, state modification is allowed.
@@ -51,14 +54,21 @@ namespace Nethermind.Blockchain.Contracts
         /// <param name="gasLimit">Gas limit for generated transaction.</param>
         /// <param name="arguments">Arguments to the function.</param>
         /// <returns>Deserialized return value of the <see cref="functionName"/> based on its definition.</returns>
-        protected object[] Call(BlockHeader header, string functionName, Address sender, long gasLimit, params object[] arguments)
+        protected object[] Call(BlockHeader header, IBlockTracer? blockTracer, string functionName, Address sender, long gasLimit, params object[] arguments)
         {
             var function = AbiDefinition.GetFunction(functionName);
             var transaction = GenerateTransaction<SystemTransaction>(functionName, sender, gasLimit, header, arguments);
             var result = Call(header, functionName, transaction);
             var objects = DecodeData(function.GetReturnInfo(), result);
+
+            blockTracer?.StartNewTxTrace(transaction);
+            blockTracer?.EndTxTrace();
+
             return objects;
         }
+
+        protected object[] Call(BlockHeader header, string functionName, Address sender, long gasLimit, params object[] arguments)
+            => Call(header, null, functionName, sender, gasLimit, arguments);
 
         private bool TryCall(BlockHeader header, Transaction transaction, out byte[] result)
         {
