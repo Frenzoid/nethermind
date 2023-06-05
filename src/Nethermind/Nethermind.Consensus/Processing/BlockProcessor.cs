@@ -285,6 +285,7 @@ public partial class BlockProcessor : IBlockProcessor
             ReceiptsRoot = bh.ReceiptsRoot,
             BaseFeePerGas = bh.BaseFeePerGas,
             WithdrawalsRoot = bh.WithdrawalsRoot,
+            BeaconStateRoot = bh.BeaconStateRoot,
             IsPostMerge = bh.IsPostMerge,
         };
 

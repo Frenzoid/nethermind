@@ -42,7 +42,7 @@ public class ExecutionPayload
         Withdrawals = block.Withdrawals;
         ExcessDataGas = block.ExcessDataGas;
         UnclesHash = block.UnclesHash ?? Keccak.OfAnEmptySequenceRlp;
-
+        BeaconStateRoot = block.BeaconStateRoot!;
         SetTransactions(block.Transactions);
     }
 
@@ -133,7 +133,8 @@ public class ExecutionPayload
                 TotalDifficulty = totalDifficulty,
                 TxRoot = new TxTrie(transactions).RootHash,
                 WithdrawalsRoot = Withdrawals is null ? null : new WithdrawalTrie(Withdrawals).RootHash,
-                ExcessDataGas = ExcessDataGas
+                ExcessDataGas = ExcessDataGas,
+                BeaconStateRoot = BeaconStateRoot 
             };
 
             block = new(header, transactions, Array.Empty<BlockHeader>(), Withdrawals);

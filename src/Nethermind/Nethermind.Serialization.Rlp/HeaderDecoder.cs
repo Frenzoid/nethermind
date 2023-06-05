@@ -237,16 +237,16 @@ namespace Nethermind.Serialization.Rlp
             {
                 rlpStream.Encode(header.WithdrawalsRoot ?? Keccak.Zero);
             }
+            if (header.BeaconStateRoot is not null)
+            {
+                rlpStream.Encode(header.BeaconStateRoot ?? Keccak.Zero);
+            }
 
             if (header.ExcessDataGas is not null)
             {
                 rlpStream.Encode(header.ExcessDataGas.Value);
             }
 
-            if (header.BeaconStateRoot is not null)
-            {
-                rlpStream.Encode(header.BeaconStateRoot ?? Keccak.Zero);
-            }
         }
 
         public Rlp Encode(BlockHeader? item, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
