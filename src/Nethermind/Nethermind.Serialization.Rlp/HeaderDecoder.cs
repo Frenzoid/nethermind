@@ -286,7 +286,7 @@ namespace Nethermind.Serialization.Rlp
                                 + Rlp.LengthOf(item.ExtraData)
                                 + (item.BaseFeePerGas.IsZero ? 0 : Rlp.LengthOf(item.BaseFeePerGas))
                                 + (item.WithdrawalsRoot is null && item.ExcessDataGas is null ? 0 : Rlp.LengthOfKeccakRlp)
-                                + (item.BeaconStateRoot is null ? 0 : Rlp.LengthOfKeccakRlp + sizeof(ulong))
+                                + (item.BeaconStateRoot is null ? 0 : Rlp.LengthOfKeccakRlp)
                                 + (item.ExcessDataGas is null ? 0 : Rlp.LengthOf(item.ExcessDataGas.Value));
 
             if (notForSealing)
