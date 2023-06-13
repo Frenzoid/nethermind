@@ -292,7 +292,8 @@ namespace Nethermind.Consensus.Producers
                 _blocksConfig.GetExtraDataBytes())
             {
                 Author = blockAuthor,
-                MixHash = payloadAttributes?.PrevRandao
+                MixHash = payloadAttributes?.PrevRandao,
+                BeaconStateRoot = payloadAttributes?.BeaconStateRoot
             };
 
             UInt256 difficulty = _difficultyCalculator.Calculate(header, parent);
