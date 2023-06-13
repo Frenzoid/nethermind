@@ -41,7 +41,6 @@ public class ExecutionPayload
         BaseFeePerGas = block.BaseFeePerGas;
         Withdrawals = block.Withdrawals;
         ExcessDataGas = block.ExcessDataGas;
-        UnclesHash = block.UnclesHash ?? Keccak.OfAnEmptySequenceRlp;
         BeaconStateRoot = block.BeaconStateRoot!;
         SetTransactions(block.Transactions);
     }
@@ -107,7 +106,6 @@ public class ExecutionPayload
     /// </summary>
     [JsonProperty(ItemConverterType = typeof(NullableUInt256Converter), NullValueHandling = NullValueHandling.Ignore)]
     public UInt256? ExcessDataGas { get; set; }
-    public Keccak UnclesHash { get; set; } = Keccak.Zero;
 
     /// <summary>
     /// Creates the execution block from payload.
@@ -122,7 +120,7 @@ public class ExecutionPayload
             var transactions = GetTransactions();
             var header = new BlockHeader(
                 ParentHash,
-                UnclesHash,
+                Keccak.OfAnEmptySequenceRlp,
                 FeeRecipient,
                 UInt256.Zero,
                 BlockNumber,
