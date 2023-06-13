@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Demerzel Solutions Limited
+// SPDX-FileCopyrightText: 2022 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
@@ -19,7 +19,7 @@ namespace Nethermind.Serialization.Rlp
     ///
     ///     Note: Prefer RlpStream to encode instead, which does not create a new byte array on each call.
     /// </summary>
-    public class Rlp : Nethermind.Core.RlpBase
+    public class Rlp
     {
         public const int LengthOfKeccakRlp = 33;
 
@@ -50,18 +50,24 @@ namespace Nethermind.Serialization.Rlp
         /// <summary>
         /// This is not encoding - just a creation of an RLP object, e.g. passing 192 would mean an RLP of an empty sequence.
         /// </summary>
-        private Rlp(byte singleByte) : base(singleByte) { }
-
-        public Rlp(byte[] bytes) : base(bytes)
+        private Rlp(byte singleByte)
         {
-            if (bytes is null)
-            {
-                throw new RlpException("RLP cannot be initialized with null bytes");
-            }
+            Bytes = new[] { singleByte };
+        }
+
+        public Rlp(byte[] bytes)
+        {
+            Bytes = bytes ?? throw new RlpException("RLP cannot be initialized with null bytes");
         }
 
         public long MemorySize => /* this */ MemorySizes.SmallObjectOverhead +
                                             MemorySizes.Align(MemorySizes.ArrayOverhead + Bytes.Length);
+
+        public byte[] Bytes { get; }
+
+        public byte this[int index] => Bytes[index];
+
+        public int Length => Bytes.Length;
 
         public static readonly Dictionary<Type, IRlpDecoder> Decoders = new();
 

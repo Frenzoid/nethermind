@@ -14,6 +14,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
+using Nethermind.Evm.Precompiles.Statefull;
 using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -34,12 +35,8 @@ public partial class BlockProcessor : IBlockProcessor
     private readonly IBlockValidator _blockValidator;
     private readonly IRewardCalculator _rewardCalculator;
     private readonly IBlockProcessor.IBlockTransactionsExecutor _blockTransactionsExecutor;
-    private readonly IBlockTree _blockTree;
 
     private const int MaxUncommittedBlocks = 64;
-
-    public static readonly Address HISTORY_STORAGE_ADDRESS = Address.FromNumber(UInt256.MaxValue - 2);
-    public static readonly UInt256 SLOTS_PER_HISTORICAL_ROOT = (UInt256)8192;
 
     /// <summary>
     /// We use a single receipt tracer for all blocks. Internally receipt tracer forwards most of the calls
@@ -56,7 +53,6 @@ public partial class BlockProcessor : IBlockProcessor
         IReceiptStorage? receiptStorage,
         IWitnessCollector? witnessCollector,
         ILogManager? logManager,
-        IBlockTree? blockTree,
         IWithdrawalProcessor? withdrawalProcessor = null)
     {
         _logger = logManager?.GetClassLogger() ?? throw new ArgumentNullException(nameof(logManager));
@@ -68,7 +64,6 @@ public partial class BlockProcessor : IBlockProcessor
         _withdrawalProcessor = withdrawalProcessor ?? new WithdrawalProcessor(stateProvider, logManager);
         _rewardCalculator = rewardCalculator ?? throw new ArgumentNullException(nameof(rewardCalculator));
         _blockTransactionsExecutor = blockTransactionsExecutor ?? throw new ArgumentNullException(nameof(blockTransactionsExecutor));
-        _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
 
         _receiptsTracer = new BlockReceiptsTracer();
     }
@@ -228,7 +223,7 @@ public partial class BlockProcessor : IBlockProcessor
 
         if (spec.BeaconStateRootAvailable)
         {
-            StorageCell storageCell = new(HISTORY_STORAGE_ADDRESS, new UInt256(block.Header.BeaconStateRoot.Bytes));
+            StorageCell storageCell = new(BeaconStateRootPrecompile.Address, new UInt256(block.Header.BeaconStateRoot.Bytes));
             _stateProvider.Set(storageCell, ((UInt256)block.Timestamp).ToBigEndian());
         }
 

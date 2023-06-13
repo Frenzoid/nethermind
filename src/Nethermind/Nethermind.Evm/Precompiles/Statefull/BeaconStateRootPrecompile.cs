@@ -14,10 +14,10 @@ using Nethermind.Int256;
 using Nethermind.State;
 
 namespace Nethermind.Evm.Precompiles.Statefull;
-internal class BeaconStateRootPrecompile : IPrecompile
+public class BeaconStateRootPrecompile : IPrecompile
 {
     private readonly IWorldState _state;
-    public static Address Address { get; } = Address.FromNumber(UInt256.MaxValue - 2);
+    public static Address Address { get; } = Address.FromNumber(0x0B);
 
     private BeaconStateRootPrecompile(IWorldState state)
     {

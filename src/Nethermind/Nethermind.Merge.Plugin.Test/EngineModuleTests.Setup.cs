@@ -224,8 +224,7 @@ public partial class EngineModuleTests
                 State,
                 ReceiptStorage,
                 NullWitnessCollector.Instance,
-                LogManager,
-                BlockTree);
+                LogManager);
 
             return new TestBlockProcessorInterceptor(processor, _blockProcessingThrottle);
         }

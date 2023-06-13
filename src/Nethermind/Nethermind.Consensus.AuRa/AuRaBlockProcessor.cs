@@ -55,7 +55,6 @@ namespace Nethermind.Consensus.AuRa
                 receiptStorage,
                 NullWitnessCollector.Instance,
                 logManager,
-                blockTree,
                 withdrawalProcessor)
         {
             _specProvider = specProvider;

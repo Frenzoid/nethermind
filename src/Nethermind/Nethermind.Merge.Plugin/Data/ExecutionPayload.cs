@@ -144,7 +144,7 @@ public class ExecutionPayload
                 TxRoot = new TxTrie(transactions).RootHash,
                 WithdrawalsRoot = Withdrawals is null ? null : new WithdrawalTrie(Withdrawals).RootHash,
                 ExcessDataGas = ExcessDataGas,
-                BeaconStateRoot = BeaconStateRoot 
+                BeaconStateRoot = BeaconStateRoot
             };
 
             block = new(header, transactions, Array.Empty<BlockHeader>(), Withdrawals);

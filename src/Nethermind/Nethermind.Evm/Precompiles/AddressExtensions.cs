@@ -15,7 +15,7 @@ namespace Nethermind.Evm.Precompiles
 
         public static bool IsPrecompile(this Address address, IReleaseSpec releaseSpec)
         {
-            if(address == BeaconStateRootPrecompile.Address)
+            if (address == BeaconStateRootPrecompile.Address)
             {
                 return releaseSpec.BeaconStateRootAvailable;
             }
@@ -47,7 +47,7 @@ namespace Nethermind.Evm.Precompiles
                 17 => releaseSpec.Bls381Enabled,
                 18 => releaseSpec.Bls381Enabled,
                 20 => releaseSpec.IsEip4844Enabled,
-                
+
                 _ => false
             };
         }

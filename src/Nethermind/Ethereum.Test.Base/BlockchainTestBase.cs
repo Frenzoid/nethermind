@@ -160,8 +160,7 @@ namespace Ethereum.Test.Base
                 stateProvider,
                 receiptStorage,
                 NullWitnessCollector.Instance,
-                _logManager,
-                blockTree);
+                _logManager);
 
             IBlockchainProcessor blockchainProcessor = new BlockchainProcessor(
                 blockTree,
