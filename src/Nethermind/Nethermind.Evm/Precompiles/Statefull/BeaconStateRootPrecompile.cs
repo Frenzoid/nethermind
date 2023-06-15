@@ -2,14 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
-using Nethermind.Crypto;
-using Nethermind.Evm.Precompiles.Snarks;
 using Nethermind.Int256;
 using Nethermind.State;
 
@@ -28,7 +22,7 @@ public class BeaconStateRootPrecompile : IPrecompile
 
     public (ReadOnlyMemory<byte>, bool) Run(in ReadOnlyMemory<byte> inputData, IReleaseSpec releaseSpec)
     {
-        Metrics.Bn254MulPrecompile++;
+        Metrics.BeaconStatePrecompile++;
         Span<byte> inputDataSpan = stackalloc byte[32];
         inputData.PrepareEthInput(inputDataSpan);
 
@@ -42,7 +36,7 @@ public class BeaconStateRootPrecompile : IPrecompile
 
     public long BaseGasCost(IReleaseSpec releaseSpec)
     {
-        return 2100; // Note(Ayman) : find a way to add sload gas calculations
+        return 2100;
     }
 
     public long DataGasCost(in ReadOnlyMemory<byte> inputData, IReleaseSpec releaseSpec)

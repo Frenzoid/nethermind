@@ -13,7 +13,6 @@
     <ProjectReference Include="..\Nethermind.Crypto\Nethermind.Crypto.csproj" />
     <ProjectReference Include="..\Nethermind.Evm\Nethermind.Evm.csproj" />
     <ProjectReference Include="..\Nethermind.TxPool\Nethermind.TxPool.csproj" />
-
   </ItemGroup>
 
 </Project>
