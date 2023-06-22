@@ -221,8 +221,15 @@ public partial class BlockProcessor : IBlockProcessor
 
         if (spec.BeaconStateRootAvailable)
         {
-            StorageCell storageCell = new(BeaconStateRootPrecompile.Address, new UInt256(block.Header.BeaconStateRoot.Bytes));
-            _stateProvider.Set(storageCell, ((UInt256)block.Timestamp).ToBigEndian());
+            UInt256.Mod(block.Timestamp, BeaconStateRootPrecompile.HISTORICAL_ROOTS_LENGTH, out UInt256 timestampReduced);
+            UInt256 rootIndex = timestampReduced + BeaconStateRootPrecompile.HISTORICAL_ROOTS_LENGTH;
+            Keccak parentBeaconStateRoot = block.Header.BeaconStateRoot;
+
+            StorageCell tsStorageCell = new(BeaconStateRootPrecompile.Address, timestampReduced);
+            StorageCell brStorageCell = new(BeaconStateRootPrecompile.Address, rootIndex);
+
+            _stateProvider.Set(tsStorageCell, ((UInt256)block.Timestamp).ToBigEndian());
+            _stateProvider.Set(brStorageCell, parentBeaconStateRoot.Bytes.ToArray());
         }
 
         _receiptsTracer.SetOtherTracer(blockTracer);
