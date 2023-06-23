@@ -40,7 +40,8 @@ public class BeaconStateRootPrecompile : IPrecompile
         if (recordedTimestamp != timestamp)
         {
             return (UInt256.Zero.ToBigEndian(), true);
-        } else
+        }
+        else
         {
             UInt256 timestampExtended = timestampReduced + HISTORICAL_ROOTS_LENGTH;
             byte[] recordedRoot = SloadFromStorage(timestampExtended);
