@@ -140,6 +140,7 @@ public class ChainSpecLoader : IChainSpecLoader
             Eip4895TransitionTimestamp = chainSpecJson.Params.Eip4895TransitionTimestamp,
             Eip4844TransitionTimestamp = chainSpecJson.Params.Eip4844TransitionTimestamp,
             Eip2537TransitionTimestamp = chainSpecJson.Params.Eip2537TransitionTimestamp,
+            Eip2537TransitionTimestamp = chainSpecJson.Params.Eip2537TransitionTimestamp,
             Eip4788TransitionTimestamp = chainSpecJson.Params.Eip4788TransitionTimestamp,
             TransactionPermissionContract = chainSpecJson.Params.TransactionPermissionContract,
             TransactionPermissionContractTransition = chainSpecJson.Params.TransactionPermissionContractTransition,
